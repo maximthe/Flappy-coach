@@ -1,0 +1,8 @@
+add round nr on death screen?
+
+for testing, until we implement tts, just print the output in the console and then allow a new round to be played
+
+implement winning state
+    game_win bool
+
+We can make the pipes grow increasingly narrower to make the game more frustrating
