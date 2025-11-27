@@ -290,6 +290,13 @@ while True:
                 print(" Score: " + str(score))
                 print("  Time: " + str(round(float(ticks_played)/60, 1)) + " seconds") # nice innit?
                 print()
+                agent_display.show_dialog(
+                    text=(
+                        f"Score {score}! I saw that gap coming a mile away. "
+                        "Stay calm, flap steady, and I'll keep the tips flowing."
+                    ),
+                    duration=5.0,
+                )
 
             if is_off_screen(pipe_group.sprites()[0]):
                 pipe_group.remove(pipe_group.sprites()[0])
