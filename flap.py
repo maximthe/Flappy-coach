@@ -1,6 +1,8 @@
 import pygame, random, time
 from pygame.locals import *
 
+from agent_display import CoachBirdAgent, SpeechCommand
+
 # --- Imports ---
 # This file uses `pygame` for game loop, rendering and input,
 # `random` to vary pipe positions, and `time` for simple delays.
@@ -110,12 +112,12 @@ class Pipe(pygame.sprite.Sprite):
     def update(self):
         self.rect[0] -= GAME_SPEED
 
-        
- 
+
+
 # --- Ground sprite ---
 # Large repeating ground image that scrolls left to simulate forward motion.
 class Ground(pygame.sprite.Sprite):
-    
+
     def __init__(self, xpos):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.image.load('assets/sprites/base.png').convert_alpha()
@@ -184,27 +186,26 @@ for i in range (2):
 
 
 clock = pygame.time.Clock()
-
-# Flag used for the start screen loop
+agent_display = CoachBirdAgent(SCREEN_WIDHT, SCREEN_HEIGHT)
 
 # --- Main game loop ---
 # Processes input, updates sprites, spawns and recycles pipes/ground, and
 # checks for collisions to end the game.
 
-# Variables tnat persist across frames
+# Variables that persist across frames
 begin = True
 alive = True
 passed = False
 score = 0
-high_score = 0 
+high_score = 0
 loss_count = 0
 ticks_played = 0 #used to track how much time the player has spend playing. the counter only increment while the bird is alive
 agent_enabled = False
-agent_speaking = False
 
 while True:
 
-    clock.tick(60)
+    delta_ms = clock.tick(60)
+    delta_time = delta_ms / 1000.0
 
     #start of new round
     if begin:
@@ -220,8 +221,7 @@ while True:
                     passed = False
                     score = 0
 
-                
-                    
+
 
         screen.blit(BACKGROUND, (0, 0))
         screen.blit(BEGIN_IMAGE, (120, 150))
@@ -238,8 +238,10 @@ while True:
         bird_group.draw(screen)
         ground_group.draw(screen)
 
-        pygame.display.update()
+        agent_display.update(delta_time)
+        agent_display.draw(screen)
 
+        pygame.display.update()
     #executes after the round has started
     else:
         for event in pygame.event.get():
@@ -250,7 +252,7 @@ while True:
                     bird.bump()
                     pygame.mixer.music.load(wing)
                     pygame.mixer.music.play()
-                if not alive and not agent_speaking and event.key == K_r: # reset game
+                if not alive and not agent_display.is_speaking and event.key == K_r: # reset game
                     alive = 1
                     bird_group.empty()
                     bird = Bird()
@@ -265,7 +267,7 @@ while True:
                         pipes = get_random_pipes(SCREEN_WIDHT * i + 800)
                         pipe_group.add(pipes[0])
                         pipe_group.add(pipes[1])
-                        begin = True
+                    begin = True
 
 
         screen.blit(BACKGROUND, (0, 0))
@@ -308,6 +310,9 @@ while True:
             pipe_group.draw(screen)
             ground_group.draw(screen)
 
+            agent_display.update(delta_time)
+            agent_display.draw(screen)
+
             pygame.display.update()
 
             # death event
@@ -316,37 +321,38 @@ while True:
                 pygame.mixer.music.load(hit)
                 pygame.mixer.music.play()
                 alive = False
+                new_high_score = score > high_score
                 high_score = max(high_score, score)
+                if new_high_score:
+                    agent_display.trigger_high_score_bounce()
                 loss_count += 1
                 #interface mumbo-jumbo
                 score_surface = score_font.render(str(score), True,  (250, 121, 88))
                 score_bg_surface = score_bg_font.render(str(score), True, (240, 234, 161))
                 hs_surface = score_font.render(str(high_score), True,  (250, 121, 88))
                 hs_bg_surface = score_bg_font.render(str(high_score), True, (240, 234, 161))
-            # if not alive:
-            if not alive:
-                # overlay the Game Over text and draw the final frame then 
-                # player sees the result and can press 'R' to restart.
-                screen.blit(GAME_OVER_TEXT, (100, 100))
-                screen.blit(SCORE_PANEL, (35,200))
-                screen.blit(score_bg_surface, (310,245))
-                screen.blit(score_surface, (310,245))
-                screen.blit(hs_bg_surface, (310,308))
-                screen.blit(hs_surface, (310,308))
-                screen.blit(info_1_bg, (52, 222))
-                screen.blit(info_1, (50, 220))
+        if not alive:
+            # overlay the Game Over text and draw the final frame then
+            # player sees the result and can press 'R' to restart.
+            screen.blit(GAME_OVER_TEXT, (100, 100))
+            screen.blit(SCORE_PANEL, (35,200))
+            screen.blit(score_bg_surface, (310,245))
+            screen.blit(score_surface, (310,245))
+            screen.blit(hs_bg_surface, (310,308))
+            screen.blit(hs_surface, (310,308))
+            screen.blit(info_1_bg, (52, 222))
+            screen.blit(info_1, (50, 220))
 
-                # check if the conditions for agent to first intervene are met
-                if(not agent_enabled and loss_count >= 5 and ticks_played >=1800): # 60 ticks in a second. we check for 30 seconds of gameplay
-                    agent_enabled = True
-                    print("This is where the agent should first intervene")
-                
-                # TODO: agent speaks to the player in between rounds
-                if(agent_enabled): 
-                    agent_speaking = True
-                    # generate agent output and wait for it to finish speaking
+            # check if the conditions for agent to first intervene are met
+            if(not agent_enabled and loss_count >= 5 and ticks_played >=1800): # 60 ticks in a second. we check for 30 seconds of gameplay
+                agent_enabled = True
+                print("This is where the agent should first intervene")
 
-                    agent_speaking = False
-                    # you can now start a new round
-                    
-                pygame.display.update()
+            # Agent speaks to the player in between rounds
+            if(agent_enabled and not agent_display.is_speaking):
+                agent_display.start_speaking(SpeechCommand(duration=2.5, text="Nice run!"))
+
+            agent_display.update(delta_time)
+            agent_display.draw(screen)
+
+            pygame.display.update()
